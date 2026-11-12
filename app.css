@@ -1,0 +1,1212 @@
+/* ==========================================================
+   轻记账 · 全局样式
+   浅色卡片风 / 单一主色蓝 / 支出红 收入绿 / iPhone 安全区适配
+   ========================================================== */
+
+:root {
+  --blue: #0a84ff;
+  --blue-dark: #0060df;
+  --blue-soft: #e8f2ff;
+  --out: #e5484d;      /* 支出 红 */
+  --in: #16a34a;       /* 收入 绿 */
+  --in-soft: #e7f7ee;
+  --out-soft: #fdecec;
+  --bg: #f2f5f9;
+  --card: #ffffff;
+  --text: #1c2430;
+  --text2: #6b7684;
+  --text3: #9aa4b2;
+  --line: #eceff4;
+  --radius: 16px;
+  /* 安全区（刘海 / Home 指示条）：
+     constant() 供 iOS 11.0–11.2，env() 供 iOS 11.2+（后者在 11.2+ 生效）。
+     JS 兜底时会把 --safe-b 直接写成实值（个别内嵌浏览器不返回 env()）。 */
+  --safe-t: constant(safe-area-inset-top);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: constant(safe-area-inset-bottom);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: constant(safe-area-inset-left);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: constant(safe-area-inset-right);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+/* hidden 属性必须能盖住 display:flex/block，否则弹层/按钮不会被真正隐藏 */
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC",
+               "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  font-size: 16px;            /* 保证正文 ≥14px */
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+body {
+  /* 主屏全屏模式下禁止橡皮筋滚动穿透。
+     ⚠️ 这里绝对不能再用 min-height:100vh —— iOS 的 100vh 是「大视口」（按浏览器工具栏
+     收起后的高度算），带底部工具栏时会比实际可见高度大，把整个布局顶出屏幕，
+     表现就是「底部导航被屏幕下沿裁掉一半」。用 inset:0 让它精确等于可视视口。 */
+  position: fixed; inset: 0;
+  overflow: hidden;
+}
+
+button { font-family: inherit; font-size: 15px; color: inherit; border: none; background: none; cursor: pointer; }
+input, textarea { font-family: inherit; font-size: 16px; color: inherit; } /* iOS 聚焦缩放 */
+
+.muted { color: var(--text3); font-weight: 400; }
+.out { color: var(--out); }
+.in  { color: var(--in); }
+
+/* ---------- 布局骨架 ---------- */
+.app {
+  display: flex; flex-direction: column;
+  /* --app-h 由 JS 在「真的被压在屏幕外」时才写入（见 app.js guardBottomOverflow），
+     平时不设置，走下面的默认值 */
+  height: var(--app-h, 100%);
+  /* 动态视口高度：iOS 底部工具栏收起/展开时实时跟随，保证底部导航永远在可见区内。
+     不支持 dvh 的浏览器会自动回落到上一条。 */
+  height: var(--app-h, 100dvh);
+}
+
+.topbar {
+  flex: none;
+  padding: calc(var(--safe-t) + 8px) 16px 8px;
+  padding-left: calc(var(--safe-l) + 16px);
+  padding-right: calc(var(--safe-r) + 16px);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg);
+  border-bottom: 1px solid transparent;
+  transition: border-color .2s;
+  min-height: 48px;
+}
+.topbar.scrolled { border-bottom-color: var(--line); background: rgba(242,245,249,.94); backdrop-filter: blur(12px); }
+.topbar-title { font-size: 19px; font-weight: 600; letter-spacing: .2px; }
+
+.icon-btn {
+  width: 44px; height: 44px; border-radius: 22px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text2);
+}
+.icon-btn:active { background: rgba(0,0,0,.06); }
+
+.main {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 16px 0;
+  /* 底部留白：16px + 安全区，保证滚到最底部时内容不被导航栏/小白条压住 */
+  padding-bottom: calc(16px + constant(safe-area-inset-bottom));
+  padding-bottom: calc(16px + var(--safe-b, env(safe-area-inset-bottom, 0px)));
+  padding-left: calc(var(--safe-l, env(safe-area-inset-left, 0px)) + 16px);
+  padding-right: calc(var(--safe-r, env(safe-area-inset-right, 0px)) + 16px);
+}
+.space-footer { height: 24px; }
+
+/* ---------- 卡片 / 标题 ---------- */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(20,35,60,.05);
+}
+.section-title {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 15px; font-weight: 600; color: var(--text2);
+  margin: 18px 4px 10px;
+}
+.card-title { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
+.text-btn { font-size: 15px; color: var(--blue); padding: 8px 4px; min-height: 44px; }
+.text-btn.primary { font-weight: 600; }
+.text-btn:active { opacity: .5; }
+
+/* ---------- 顶部大卡 ---------- */
+.hero-card {
+  background: linear-gradient(135deg, #0a84ff 0%, #3a9bff 55%, #5cb0ff 100%);
+  border-radius: 20px;
+  padding: 20px 18px 16px;
+  color: #fff;
+  margin-top: 8px;
+  box-shadow: 0 6px 18px rgba(10,132,255,.22);
+}
+.hero-label { font-size: 14px; opacity: .9; }
+/* 金额 + 猫爪：外层容器负责原来的上下间距（极简主题下也保持一致） */
+.hero-amount-row { display: flex; align-items: flex-end; gap: 8px; margin: 6px 0 14px; }
+.hero-amount { font-size: 34px; font-weight: 700; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.hero-row { display: flex; gap: 10px; }
+.hero-cell {
+  flex: 1;
+  background: rgba(255,255,255,.18);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.hero-cell-label { font-size: 14px; opacity: .92; display: flex; align-items: center; gap: 5px; }
+.hero-cell-val { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dot { width: 7px; height: 7px; border-radius: 4px; display: inline-block; }
+.dot-out { background: #ffd6d6; }
+.dot-in { background: #c9f7d8; }
+
+/* ---------- 统计格 ---------- */
+/* ---------- 首页并列入口：记一笔 / 补账单 ---------- */
+/* 两个按钮同宽、同高、同圆角：flex:1 + border-radius 一致 */
+.act-row { display: flex; gap: 10px; margin: 12px 0 2px; }
+.act-btn {
+  flex: 1 1 0; min-width: 0;
+  min-height: 52px; padding: 10px 8px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 16px; font-weight: 600; line-height: 1.1;
+  transition: transform .1s, opacity .1s;
+}
+.act-btn:active { transform: scale(.97); opacity: .85; }
+.act-btn .act-ico { flex: none; display: block; }
+.act-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-btn-primary {
+  background: linear-gradient(135deg, #0a84ff 0%, #3a9bff 100%);
+  color: #fff; box-shadow: 0 4px 12px rgba(10,132,255,.24);
+}
+.act-btn-plain {
+  background: var(--card); color: var(--text);
+  box-shadow: 0 1px 3px rgba(20,35,60,.08);
+  border: 1.5px solid var(--line);
+}
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 10px; }
+.stat { min-width: 0; }
+.stat-label { font-size: 14px; color: var(--text2); margin-bottom: 4px; }
+.stat-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.count-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+  font-size: 14px; color: var(--text2);
+}
+.count-row b { color: var(--text); font-size: 16px; }
+
+/* ---------- 账目列表 ---------- */
+.list-card { padding: 4px 6px; }
+.day-group { margin-bottom: 14px; }
+.day-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 12px 10px 8px;
+}
+.day-date { font-size: 15px; font-weight: 600; }
+.day-sub { font-size: 14px; color: var(--text3); }
+.day-sub .out, .day-sub .in { font-weight: 600; }
+
+.item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px;
+  min-height: 56px;
+  border-radius: 12px;
+  transition: background .15s;
+}
+.item:active { background: #f2f5f9; }
+.item-emoji {
+  width: 40px; height: 40px; flex: none;
+  border-radius: 12px;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 21px;
+}
+.item-main { flex: 1; min-width: 0; }
+.item-cat { font-size: 15px; font-weight: 500; }
+.item-note {
+  font-size: 14px; color: var(--text2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.item-right { text-align: right; flex: none; }
+.item-amt { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.item-time { font-size: 14px; color: var(--text3); margin-top: 2px; }
+.item-del {
+  flex: none; width: 44px; height: 44px; border-radius: 22px; margin-right: -8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text3);
+}
+.item-del:active { background: var(--out-soft); color: var(--out); }
+
+.empty { padding: 46px 20px; text-align: center; }
+.empty-emoji { font-size: 42px; margin-bottom: 10px; }
+.empty-text { font-size: 14px; color: var(--text3); }
+
+/* ---------- 筛选栏 ---------- */
+.filter-bar { display: flex; gap: 10px; align-items: center; padding: 8px 0 4px; }
+.seg {
+  display: flex; background: #e6ebf2; border-radius: 11px; padding: 3px; flex: none;
+}
+.seg-item {
+  padding: 8px 14px; min-height: 44px; border-radius: 11px;
+  font-size: 15px; color: var(--text2); font-weight: 500;
+}
+.seg-item.active { background: #fff; color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.search-input {
+  flex: 1; min-width: 0; height: 44px;
+  border: none; background: var(--card); border-radius: 12px;
+  padding: 0 14px; font-size: 15px;
+  box-shadow: 0 1px 3px rgba(20,35,60,.05);
+}
+.search-input::placeholder { color: var(--text3); }
+
+/* ---------- 底部 Tab（适配 iOS 底部安全区 / Home 指示条） ---------- */
+.tabbar {
+  flex: none;
+  display: flex; align-items: center; justify-content: space-around;
+  /* 底部内边距 = 原 6px + 安全区；总高度 = 原 68px + 安全区。
+     第 1 条用 constant()（iOS 11.0–11.2），第 2 条用 var(--safe-b, env(...))
+     （iOS 11.2+ 生效；JS 兜底时 --safe-b 会被写成实值）。 */
+  padding: 6px 8px calc(6px + constant(safe-area-inset-bottom));
+  padding: 6px 8px calc(6px + var(--safe-b, env(safe-area-inset-bottom, 0px)));
+  padding-left: calc(8px + var(--safe-l, env(safe-area-inset-left, 0px)));
+  padding-right: calc(8px + var(--safe-r, env(safe-area-inset-right, 0px)));
+  min-height: calc(68px + constant(safe-area-inset-bottom));
+  min-height: calc(68px + var(--safe-b, env(safe-area-inset-bottom, 0px)));
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line);
+}
+.tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  min-height: 52px; padding: 3px 0; color: var(--text3);
+}
+.tab svg { width: 22px; height: 22px; }
+/* 字号下限 14px（可读性要求） */
+.tab span { font-size: 14px; font-weight: 500; line-height: 1.15; }
+.tab.active { color: var(--blue); }
+.tab-add {
+  width: 56px; height: 56px; flex: none; border-radius: 28px;
+  background: linear-gradient(135deg, #0a84ff, #3a9bff);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(10,132,255,.35);
+  margin: 0 6px;
+  transition: transform .12s;
+}
+.tab-add:active { transform: scale(.92); }
+
+/* ---------- 弹层 ---------- */
+.sheet-mask {
+  position: fixed; inset: 0; background: rgba(15,25,40,.42);
+  opacity: 0; transition: opacity .22s; z-index: 40;
+}
+.sheet-mask.show { opacity: 1; }
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: var(--kb, 0px); z-index: 50;
+  background: var(--card);
+  border-radius: 20px 20px 0 0;
+  max-height: calc(92% - var(--kb, 0px));
+  display: flex; flex-direction: column;
+  transform: translateY(100%);
+  visibility: hidden;
+  transition: transform .26s cubic-bezier(.32,.72,0,1), visibility .26s;
+  box-shadow: 0 -4px 24px rgba(20,35,60,.14);
+}
+.sheet.show { transform: translateY(0); visibility: visible; }
+/* 弹层隐藏时仍需保留 display 才能播放入场动画，真正的“隐藏”由 visibility 承担 */
+.sheet[hidden] { display: flex !important; }
+.sheet-head {
+  flex: none;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  min-height: 52px;
+}
+.sheet-title { font-size: 16px; font-weight: 600; }
+.sheet-body {
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 14px 16px calc(var(--safe-b) + 16px);
+}
+
+/* ---------- 记账表单 ---------- */
+.type-seg {
+  display: flex; background: #eef1f6; border-radius: 12px; padding: 4px;
+  margin-bottom: 14px;
+}
+.type-item {
+  flex: 1; min-height: 44px; border-radius: 10px;
+  font-size: 15px; font-weight: 500; color: var(--text2);
+  transition: all .18s;
+}
+.type-item.active { background: #fff; color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.type-item[data-type="expense"].active { color: var(--out); }
+.type-item[data-type="income"].active { color: var(--in); }
+
+.amount-box {
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 2px solid var(--line);
+  padding: 6px 0 10px; margin-bottom: 14px;
+}
+.amount-box:focus-within { border-bottom-color: var(--blue); }
+.currency { font-size: 26px; font-weight: 600; color: var(--text2); }
+.amount-input {
+  flex: 1; border: none; outline: none; background: transparent;
+  font-size: 34px; font-weight: 700; padding: 4px 0;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.amount-input::placeholder { color: #c8d0dc; }
+
+.field-label { font-size: 14px; color: var(--text2); margin: 16px 0 8px; font-weight: 500; }
+
+.cat-box { max-height: 296px; overflow-y: auto; -webkit-overflow-scrolling: touch; margin: 0 -4px; }
+.cat-group-title { font-size: 14px; color: var(--text3); padding: 4px 6px; font-weight: 500; }
+.cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 0 4px 4px; }
+.cat-item {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 2px; border-radius: 12px; min-height: 62px; justify-content: center;
+  transition: background .15s;
+}
+.cat-item:active { background: var(--bg); }
+.cat-item.active { background: var(--blue-soft); box-shadow: inset 0 0 0 1.5px var(--blue); }
+.cat-emoji { font-size: 24px; line-height: 1.1; }
+.cat-name { font-size: 14px; color: var(--text2); text-align: center; line-height: 1.15; word-break: break-all; }
+.cat-item.active .cat-name { color: var(--blue-dark); font-weight: 600; }
+
+.date-row { display: flex; gap: 10px; }
+.date-input, .time-input {
+  height: 46px; border: 1px solid var(--line); border-radius: 12px;
+  padding: 0 12px; background: #fbfcfe; font-size: 15px; outline: none;
+}
+.date-input { flex: 1.4; }
+.time-input { flex: 1; }
+.date-input:focus, .time-input:focus { border-color: var(--blue); }
+.quick-dates { display: flex; gap: 8px; margin-top: 10px; }
+.chip {
+  min-height: 44px; padding: 10px 18px; border-radius: 22px;
+  background: #eef1f6; font-size: 14px; color: var(--text2);
+}
+.chip.active { background: var(--blue-soft); color: var(--blue-dark); font-weight: 600; }
+
+/* ---------- 补账模式：顶部日期横幅 ---------- */
+.bf-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 12px 12px 14px; margin: 2px 0 4px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #fff6e2 0%, #ffeed2 100%);
+  border: 1px solid #ffdfa6;
+}
+.bf-main { flex: 1; min-width: 0; }
+.bf-title { font-size: 16px; font-weight: 700; color: #7a4b00; line-height: 1.3; }
+.bf-sub { font-size: 13px; color: #a06a1c; margin-top: 3px; line-height: 1.35; }
+/* 小猫风格下把横幅改成两行：第一行 [猫爪] 日期 …… [回到今天]，第二行副标题整行铺满。
+   用 grid + display:contents 只重排、不改 DOM，因此极简主题的分毫不变。 */
+html.theme-cat .bf-banner {
+  display: grid; align-items: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "paw title btn" ". sub sub";
+  column-gap: 9px; row-gap: 5px;
+  padding: 11px 12px 10px 13px;
+}
+html.theme-cat .bf-paw { grid-area: paw; }
+html.theme-cat .bf-main { display: contents; }
+html.theme-cat .bf-title { grid-area: title; }
+html.theme-cat .bf-sub { grid-area: sub; margin-top: 0; }
+html.theme-cat .bf-today { grid-area: btn; }
+.bf-today {
+  flex: none; min-height: 44px; padding: 0 11px;
+  border-radius: 22px; background: #fff; color: #7a4b00;
+  font-size: 13px; font-weight: 600; white-space: nowrap;
+  border: 1px solid #ffdfa6;
+}
+.bf-today:active { background: #fff8e6; }
+/* 补账横幅：日期旁的猫爪小图标 */
+.bf-paw {
+  width: 26px; height: 26px; flex: none; display: block;
+  object-fit: contain;
+  animation: catBob 3.6s ease-in-out infinite;
+}
+
+.note-input {
+  width: 100%; border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px; background: #fbfcfe; font-size: 15px; outline: none;
+  resize: none; line-height: 1.5;
+}
+.note-input:focus { border-color: var(--blue); }
+.note-input::placeholder { color: var(--text3); }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  min-height: 46px; padding: 12px 18px; border-radius: 12px;
+  font-size: 15px; font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn.block { display: flex; width: 100%; margin-top: 22px; }
+.btn.primary { background: var(--blue); color: #fff; }
+.btn.primary:active { background: var(--blue-dark); }
+.btn.ghost { background: #eef1f6; color: var(--text); }
+.btn.ghost:active { background: #e2e7ee; }
+.btn.danger { background: var(--out-soft); color: var(--out); }
+.btn.danger:active { background: #fbdada; }
+.btn.small { min-height: 44px; padding: 10px 14px; font-size: 14px; }
+.btn[disabled] { opacity: .45; }
+
+.row-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: 52px; padding: 10px 2px; text-align: left;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+.row-btn:last-child { border-bottom: none; }
+.row-btn:active { opacity: .6; }
+.row-btn.danger { color: var(--out); }
+.row-ico { font-size: 19px; width: 24px; text-align: center; }
+.row-btn em { font-style: normal; margin-left: auto; font-size: 14px; color: var(--text3); white-space: nowrap; }
+
+.kv {
+  display: flex; align-items: center; justify-content: space-between;
+  min-height: 44px; font-size: 15px; border-bottom: 1px solid var(--line);
+}
+.kv:last-child { border-bottom: none; }
+.kv b { font-variant-numeric: tabular-nums; }
+.about p { font-size: 14px; line-height: 1.7; margin: 0 0 8px; color: var(--text2); }
+.about p:last-child { margin-bottom: 0; }
+
+/* ---------- 统计图表 ---------- */
+.month-nav { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 10px 0 4px; }
+.nav-btn {
+  width: 44px; height: 44px; border-radius: 22px; font-size: 24px;
+  color: var(--text2); display: flex; align-items: center; justify-content: center;
+}
+.nav-btn:active { background: rgba(0,0,0,.06); }
+.nav-btn[disabled] { opacity: .3; }
+.month-label { font-size: 17px; font-weight: 600; min-width: 130px; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* 横向滚动放到外层包裹层，内层 .bars 保持 overflow: visible，
+   这样点击柱子时金额气泡可以完整向上溢出，不会被任何容器裁掉。
+   包裹层再用「padding-top 预留气泡空间 + 等量负 margin 抵消位移」，
+   让可视位置与改动前完全一致（气泡落在 padding 区内，裁剪边界是 padding box，不会被切）。
+   同时柱顶的猫爪小圆点也一并从裁剪里解放出来。 */
+.bars-wrap {
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-top: 42px; margin-top: -42px;
+}
+.bars {
+  display: flex; align-items: flex-end; gap: 2px;
+  height: 150px; padding: 0 1px;
+  overflow: visible;
+}
+.bar-col {
+  flex: 1 1 0; min-width: 6px; display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-end; height: 100%;
+  position: relative;
+}
+.bar {
+  width: 76%; max-width: 16px; min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, #4d9dff, #0a84ff);
+  transition: opacity .15s;
+}
+.bar.zero { background: #e6ebf2; }
+.bar-col.today .bar { background: linear-gradient(180deg, #ff9a6a, #ff6b3d); }
+.bar-col:active .bar { opacity: .6; }
+.bar-tip {
+  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  background: #1c2430; color: #fff; font-size: 14px; padding: 5px 9px;
+  border-radius: 6px; white-space: nowrap; margin-bottom: 4px; z-index: 2;
+}
+.bars-axis { display: flex; justify-content: space-between; font-size: 14px; color: var(--text3); margin-top: 6px; }
+.chart-hint { font-size: 14px; color: var(--text3); margin-top: 8px; text-align: center; }
+
+.donut-wrap { position: relative; width: 190px; height: 190px; margin: 4px auto 14px; }
+.donut {
+  width: 100%; height: 100%; border-radius: 50%;
+  background: #eef1f6;
+  position: relative;
+}
+.donut::after {
+  content: ''; position: absolute; inset: 30px;
+  background: var(--card); border-radius: 50%;
+}
+.donut-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; pointer-events: none;
+}
+.donut-center-label { font-size: 14px; color: var(--text3); }
+.donut-center-val { font-size: 19px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+.legend { display: flex; flex-direction: column; gap: 2px; }
+.lg-item { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; }
+.lg-dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.lg-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-pct { color: var(--text3); font-variant-numeric: tabular-nums; width: 44px; text-align: right; }
+.lg-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.rank-list { display: flex; flex-direction: column; gap: 2px; }
+.rank-item { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.rank-emoji { font-size: 19px; width: 26px; text-align: center; }
+.rank-name { flex: 1; font-size: 14px; }
+.rank-bar-bg { width: 92px; height: 8px; border-radius: 4px; background: #eef1f6; overflow: hidden; }
+.rank-bar { height: 100%; border-radius: 4px; background: var(--blue); }
+.rank-val { font-size: 14px; font-weight: 600; width: 78px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- OCR ---------- */
+.ocr-box { margin-bottom: 4px; }
+.ocr-entry {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  min-height: 46px; padding: 8px 14px; border-radius: 12px;
+  background: var(--blue-soft); color: var(--blue-dark); font-size: 14px; font-weight: 500;
+}
+.ocr-arrow { margin-left: auto; font-size: 18px; transition: transform .2s; }
+.ocr-entry.open .ocr-arrow { transform: rotate(90deg); }
+.ocr-panel { padding: 12px; background: #f7f9fc; border-radius: 12px; margin-top: 8px; }
+.ocr-tip { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 10px; }
+.ocr-actions { display: flex; gap: 8px; }
+.ocr-actions label.btn { flex: 1; }
+.ocr-status { font-size: 14px; color: var(--text2); margin-top: 10px; line-height: 1.5; }
+.ocr-status.error { color: var(--out); }
+.ocr-preview { margin-top: 10px; border-radius: 10px; overflow: hidden; background: #fff; border: 1px solid var(--line); }
+.ocr-preview img { width: 100%; display: block; }
+.ocr-result { margin-top: 10px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.ocr-result-row { display: flex; justify-content: space-between; font-size: 14px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.ocr-result-row:last-child { border-bottom: none; }
+.ocr-result-row b { font-weight: 600; }
+.ocr-progress { height: 6px; border-radius: 3px; background: #e6ebf2; overflow: hidden; margin-top: 8px; }
+.ocr-progress i { display: block; height: 100%; background: var(--blue); width: 0; transition: width .3s; }
+
+/* ---------- 确认弹窗 / Toast ---------- */
+.confirm {
+  position: fixed; z-index: 70; left: 50%; top: 50%;
+  transform: translate(-50%, -46%) scale(.94);
+  width: calc(100% - 76px); max-width: 300px;
+  background: #fff; border-radius: 16px; padding: 20px 18px 14px;
+  text-align: center; opacity: 0; transition: all .18s;
+}
+.confirm.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.confirm-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+.confirm-text { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 16px; }
+.confirm-btns { display: flex; gap: 10px; }
+.confirm-btns .btn { flex: 1; }
+
+.toast {
+  position: fixed; z-index: 90;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--safe-b) + var(--kb, 0px) + 92px);
+  background: rgba(28,36,48,.94); color: #fff;
+  font-size: 15px; padding: 11px 20px; border-radius: 22px;
+  opacity: 0; transition: opacity .22s, transform .22s;
+  max-width: 84%; text-align: center;
+  backdrop-filter: blur(6px);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+
+/* ---------- 通用账单导入向导 ---------- */
+.imp {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; flex-direction: column;
+  background: var(--bg);
+  padding-top: var(--safe-t);
+}
+.imp-head {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  height: 52px; padding: 0 14px; background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+.imp-title { font-size: 17px; font-weight: 600; }
+
+.imp-steps {
+  flex: none; display: flex; align-items: center; justify-content: center;
+  padding: 12px 8px; background: var(--card); border-bottom: 1px solid var(--line);
+}
+.step-chip { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 54px; }
+.step-chip b {
+  width: 26px; height: 26px; border-radius: 13px;
+  background: #eef1f6; color: var(--text3); font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.step-chip span { font-size: 14px; color: var(--text3); white-space: nowrap; }
+.step-chip.on b { background: var(--blue); color: #fff; }
+.step-chip.on span { color: var(--blue); font-weight: 600; }
+.step-chip.done b { background: var(--in); color: #fff; }
+.step-chip.done span { color: var(--text2); }
+.step-line { width: 12px; height: 1px; background: var(--line); flex: none; }
+
+.imp-body {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 12px 14px 10px; width: 100%;
+}
+.imp-foot {
+  flex: none; display: flex; gap: 10px;
+  padding: 10px 14px calc(10px + var(--safe-b));
+  background: var(--card); border-top: 1px solid var(--line);
+}
+.imp-foot .btn { flex: 1; min-height: 46px; }
+
+.imp-drop { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px 16px; }
+.imp-drop-ico { font-size: 34px; }
+.imp-drop-t { font-size: 16px; font-weight: 600; }
+.imp-drop-s { font-size: 14px; color: var(--text3); text-align: center; line-height: 1.6; }
+.imp-drop:active { opacity: .6; }
+.imp-tpl { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 2px 0; font-size: 14px; color: var(--text2); }
+.imp-ok { font-size: 14px; line-height: 1.65; color: #0f7a3d; background: var(--in-soft); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+.imp-hint { font-size: 14px; color: var(--text3); padding: 10px 2px; line-height: 1.6; }
+.imp-warn { font-size: 14px; color: var(--out); padding: 10px 2px; }
+
+.imp-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.imp-table { border-collapse: collapse; font-size: 14px; white-space: nowrap; }
+.imp-table th {
+  text-align: left; font-weight: 600; color: var(--text2); background: #fafbfd;
+  padding: 9px 10px; border-bottom: 1px solid var(--line);
+}
+.imp-table td { padding: 11px 10px; border-bottom: 1px solid var(--line); color: var(--text); }
+.imp-table tr:last-child td { border-bottom: none; }
+.imp-table.prev td { padding: 8px 9px; }
+.prev-row { min-height: 46px; }
+.prev-row:active { background: #f6f8fb; }
+.prev-row.is-dup { background: #fffaf0; }
+.prev-row.is-bad { background: var(--out-soft); }
+.c-chk { width: 42px; }
+.c-del { width: 38px; text-align: center; }
+.p-del { width: 32px; height: 32px; border-radius: 16px; font-size: 15px; color: var(--text3); }
+.c-note { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+
+.map-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 2px; border-bottom: 1px solid var(--line); }
+.map-row:last-child { border-bottom: none; }
+.map-info { flex: 1; min-width: 0; }
+.map-h { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-s { font-size: 14px; color: var(--text3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-sel {
+  flex: none; max-width: 52%; min-height: 44px; font-size: 15px;
+  padding: 6px 8px; border-radius: 10px; border: 1px solid var(--line);
+  background: #fff; color: var(--text);
+}
+.imp-bulk { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.imp-bulk .map-sel { flex: 1; max-width: none; }
+
+.imp-sum { margin-bottom: 10px; }
+.imp-sum-line { font-size: 15px; padding: 6px 2px 10px; line-height: 1.6; }
+.imp-sum-grid { display: flex; gap: 12px; }
+.imp-sum-grid > div { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.imp-sum-grid span { font-size: 14px; color: var(--text3); }
+.imp-sum-grid b { font-size: 18px; }
+.imp-bad { color: var(--out); font-size: 14px; margin-left: 6px; }
+.imp-row-tools { display: flex; align-items: center; gap: 18px; padding: 4px 2px 10px; flex-wrap: wrap; }
+.imp-check { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 15px; }
+.imp-check input { width: 20px; height: 20px; }
+
+.imp-result { text-align: center; padding: 26px 16px; }
+.imp-result-ico { font-size: 44px; }
+.imp-result-t { font-size: 18px; font-weight: 600; margin: 8px 0 4px; }
+.imp-result-s { font-size: 14px; color: var(--text2); line-height: 1.7; }
+
+.imp-input {
+  flex: none; max-width: 58%; min-height: 44px; font-size: 15px;
+  padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px;
+  background: #fff; color: var(--text);
+}
+
+/* ---------- 备份提醒条 ---------- */
+.tip-bar {
+  background: #fff8e6; border: 1px solid #ffe2a8;
+  border-radius: 14px; padding: 12px 14px; margin-bottom: 12px;
+}
+.tip-row { display: flex; align-items: flex-start; gap: 8px; }
+.tip-ico { font-size: 16px; line-height: 1.5; }
+.tip-text { flex: 1; font-size: 14px; line-height: 1.5; color: #7a4b00; }
+.tip-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
+.tip-btn {
+  min-height: 44px; padding: 0 16px; border: 0; border-radius: 10px;
+  background: #f2e6cd; color: #6b4200; font-size: 14px; font-weight: 500;
+}
+.tip-btn.primary { background: var(--blue); color: #fff; }
+
+/* ==========================================================
+   主题：极简（默认）/ 小猫
+   所有小猫装饰挂 .cat-deco；只有 <html> 带 theme-cat 时才显示。
+   → 未加载主题类或极简主题下，界面与「加入猫元素之前的上一版」100% 一致。
+   ========================================================== */
+html:not(.theme-cat) .cat-deco { display: none !important; }
+.cat-deco { -webkit-user-drag: none; user-select: none; }
+
+/* ---------- 顶栏：标题（日期）旁的橘猫 cat02 ---------- */
+.topbar-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cat-head-top {
+  width: 38px; height: 38px; flex: none; display: block;
+  object-fit: contain;
+  mix-blend-mode: multiply;               /* 白底图：白色自动融进奶白背景 */
+  animation: catBob 3.6s ease-in-out infinite;
+}
+/* 标志不把顶栏撑高：猫咪风格下收紧上下内边距，顶栏高度仍是 48px */
+html.theme-cat .topbar { padding-top: calc(var(--safe-t) + 5px); padding-bottom: 5px; }
+@keyframes catBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+
+/* ---------- 首页统计卡片：猫耳造型（只有猫咪风格下长耳朵） ----------
+   猫耳用真实元素（.cat-deco，极简主题下被统一门控隐藏、不占位），
+   这样可以同时画出「暖色渐变 + 同色系描边 + 立体阴影 + 粉色内耳」四层，
+   不会像之前那样因为和白色卡片同色而融为一体。 */
+.cat-ear-card { position: relative; }
+.cat-ear { display: none; }
+html.theme-cat .cat-ear {
+  display: block;
+  position: absolute; top: -15px; width: 30px; height: 26px;
+  background: linear-gradient(180deg, #FFC9A3 0%, #FFB08A 100%);
+  border: 1.5px solid #FFA97A;
+  border-radius: 52% 52% 10px 10px / 82% 82% 18% 18%;
+  box-shadow: 0 3px 8px rgba(255, 140, 90, .25);
+  pointer-events: none;
+  z-index: 2;
+}
+html.theme-cat .cat-ear-l { left: 20px; transform: rotate(-16deg); }
+html.theme-cat .cat-ear-r { right: 20px; transform: rotate(16deg); }
+/* 内耳：粉色圆角小三角 */
+html.theme-cat .cat-ear-in {
+  display: block;
+  position: absolute; left: 50%; top: 6px;
+  width: 14px; height: 15px; margin-left: -7px;
+  background: #FFB6C1;
+  border-radius: 50% 50% 40% 40% / 68% 68% 32% 32%;
+}
+
+/* ---------- 首页空状态：三只单猫一排（成组出现，可点击去记账） ---------- */
+.cat-empty-art {
+  display: flex; justify-content: center; align-items: flex-end;
+  gap: 8px; margin: 0 auto 8px; pointer-events: none;
+}
+/* 浮动动画必须挂在 <img> 自身，不能挂在 .cat-empty-art 上：
+   祖先一旦带 transform 就形成 stacking context，子元素的 mix-blend-mode
+   只能在这个空组里混合，白底会重新显形（已用 tools/probe_blend.html 实测确认）。 */
+.cat-empty-art img {
+  width: 26vw; max-width: 108px; min-width: 62px; height: auto; display: block;
+  mix-blend-mode: multiply;               /* 白底自动消失，只留线条与彩毛 */
+  -webkit-user-drag: none;
+  animation: catFloat 3.6s ease-in-out infinite;
+}
+/* 中间那只抬高一点，用 margin 而不是 transform（margin 不产生 stacking context） */
+.cat-empty-art img:nth-child(2) { margin-bottom: 6px; animation-delay: .4s; }
+.cat-empty-art img:nth-child(3) { animation-delay: .8s; }
+/* 小猫主题下收紧空状态留白，让合集插画 + 文案一屏可见（不改极简主题） */
+html.theme-cat #recentEmpty { padding: 0 20px 14px; }
+html.theme-cat #recentEmpty .empty-text { line-height: 1.25; }
+@keyframes catFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+/* 明细页空状态：甜筒猫（灰白小猫 + 头顶草莓华夫冰淇淋蛋筒；用户素材原为白底图）
+   尺寸、位置、居留白与替换前的疑惑橘猫完全一致，只换了素材。
+   素材已由 tools/prep_cat_cone.py 抠成透明底，并按用户要求保留
+   mix-blend-mode: multiply —— 透明底保证任何 stacking context 下都不会露白框。 */
+.cat-empty-cone {
+  display: block; width: 38vw; max-width: 170px; min-width: 112px;
+  height: auto; margin: 0 auto 10px;
+  mix-blend-mode: multiply;               /* 白底自动消失，只留线条与彩毛 */
+}
+/* 小猫主题下隐藏「空状态中央那个放大的放大镜」；
+   搜索输入框自身的放大镜在 .search-wrap 里，不受此规则影响 */
+html.theme-cat #listEmpty .empty-emoji { display: none; }
+/* 黑猫不再出现在空状态，改由设置页头部（.cat-head-set）承担点缀 */
+html.theme-cat #recentEmpty .empty-emoji { display: none; }
+html.theme-cat #recentEmpty .empty-text:not(.cat-deco) { display: none; }
+html.theme-cat #recentEmpty { cursor: pointer; }
+
+/* ---------- 本月笔数后的小肉垫 & 底部淡脚印 ---------- */
+.cat-paw-mini { width: 15px; height: 15px; display: inline-block; vertical-align: -3px; margin-left: 4px; }
+.cat-footprints { display: flex; justify-content: center; gap: 16px; padding: 14px 0 2px; opacity: .38; }
+.cat-footprints img { width: 14px; height: 14px; display: block; }
+.cat-footprints img:nth-child(2) { transform: translateY(6px); }
+
+/* ---------- 明细页：日期分组标题旁的猫爪 ----------
+   绝对定位在卡片的左内边距里，不占行内空间 → 日期不会因此换行、也不会挤压金额。
+   极简主题下 display:none，连 .day-head{position:relative} 都不生效 → 布局零影响。 */
+html.theme-cat .day-head { position: relative; }
+.cat-day-cat {
+  position: absolute; left: -15px; top: 50%;
+  width: 19px; height: 19px; display: block;
+  transform: translateY(-50%); opacity: .9; pointer-events: none;
+}
+
+/* ---------- 底部导航：5 个 tab 换成 5 只不同品种单猫 ---------- */
+.tab-cat { width: 26px; height: 26px; display: none; object-fit: contain; mix-blend-mode: multiply; }
+html.theme-cat .tab svg { display: none; }
+/* 未选中：只做灰度 + 降透明度。注意不能用 contrast()/brightness()——
+   它们会把纯白底（255）压暗到 236 左右，本图依赖 multiply 融底，一压暗就会露出灰方块。 */
+html.theme-cat .tab .tab-cat { display: block; opacity: .5; filter: grayscale(1); transition: opacity .15s, filter .15s, transform .15s; }
+html.theme-cat .tab.active .tab-cat { opacity: 1; filter: none; transform: translateY(-1px); }
+
+/* ---------- 底部中间「记一笔」：猫头像 + 文字（胶囊） ---------- */
+.add-cat { width: 26px; height: 26px; }
+.add-text { font-size: 15px; font-weight: 600; white-space: nowrap; line-height: 1.1; }
+html.theme-cat .tab-add { width: auto; min-width: 56px; padding: 0 16px 0 13px; gap: 7px; border-radius: 28px; }
+html.theme-cat .tab-add .add-plus { display: none; }
+/* 中间胶囊是橙色底，猫图仍是纯白底 → 继续用 multiply（白底→橙色，等于透明），
+   不要改成 normal，否则会出现一个白色方块。 */
+html.theme-cat .tab-add .add-cat { display: block; mix-blend-mode: multiply; }
+
+/* ---------- 首页「记一笔」按钮：保留猫爪图标 ---------- */
+.act-paw { width: 22px; height: 22px; flex: none; display: block; }
+
+/* ---------- 弹层头部 / 表单里的猫 ---------- */
+.head-slot { width: 52px; flex: none; display: flex; align-items: center; }
+.cat-head-set { width: 40px; height: 40px; display: block; object-fit: contain; mix-blend-mode: multiply; }
+.cat-head-imp { width: 36px; height: 36px; display: block; object-fit: contain; margin-left: auto; mix-blend-mode: multiply; }
+.sheet-title { display: flex; align-items: center; gap: 6px; }
+.cat-title-cat { width: 26px; height: 26px; display: block; object-fit: contain; mix-blend-mode: multiply; }
+.cat-label-paw { width: 17px; height: 17px; display: inline-block; vertical-align: -3px; margin-left: 5px; }
+
+/* ---------- 设置页：主题选择 ---------- */
+.theme-pick { display: flex; gap: 10px; }
+.theme-opt {
+  flex: 1; min-height: 98px; padding: 12px 8px 10px;
+  border: 2px solid var(--line); border-radius: 14px; background: #fbfcfe;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  transition: border-color .15s, background .15s, transform .1s;
+}
+.theme-opt:active { transform: scale(.97); }
+.theme-opt b { font-size: 15px; font-weight: 600; }
+.theme-opt em { font-style: normal; font-size: 14px; color: var(--text3); }
+.theme-opt .theme-prev {
+  width: 46px; height: 46px; border-radius: 14px; background: #eef1f6;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; overflow: hidden;
+}
+.theme-opt .theme-prev img { width: 44px; height: 44px; object-fit: contain; display: block; }
+.theme-opt.active { border-color: var(--blue); background: var(--blue-soft); }
+.theme-opt.active b { color: var(--blue-dark); }
+.theme-opt.active .theme-prev { background: #fff; }
+
+/* ---------- Toast ---------- */
+.cat-paw-toast {
+  display: inline-flex; margin-right: 6px; vertical-align: -2px;
+  animation: catPaw .45s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes catPaw {
+  0% { transform: scale(.5) rotate(-14deg); }
+  60% { transform: scale(1.15) rotate(5deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+/* 保存成功：眯眼笑钥匙扣（keychain_smile）在文字上方，圆形裁切 */
+.toast-cat {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 22px 14px; border-radius: 22px;
+}
+/* 钥匙扣是照片风格，用圆形裁切展示（约 72px），不需要 multiply */
+.toast-cat .toast-cat-img {
+  width: 72px; height: 72px; display: block; flex: none;
+  border-radius: 50%; object-fit: cover;
+  border: 3px solid var(--pink, #FFB6C1);
+  box-shadow: 0 4px 12px rgba(0,0,0,.28);
+}
+.toast-cat .toast-cat-text { font-size: 15px; line-height: 1.3; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cat-paw-toast, .cat-empty-art, .cat-head-top, .cat-loader img { animation: none; }
+}
+
+/* 开关（通用，供其它开关复用） */
+.row-btn .switch {
+  margin-left: auto; flex: none; width: 50px; height: 30px; border-radius: 15px;
+  background: #dfe4ec; position: relative; transition: background .18s;
+}
+.row-btn .switch .knob {
+  position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
+  border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.22);
+  transition: transform .18s;
+}
+.row-btn .switch.on { background: var(--blue); }
+.row-btn .switch.on .knob { transform: translateX(20px); }
+
+/* ---------- 小屏适配 ---------- */
+@media (max-width: 340px) {
+  .cat-grid { grid-template-columns: repeat(3, 1fr); }
+  .rank-bar-bg { width: 62px; }
+  .hero-amount { font-size: 30px; }
+}
+@media (min-width: 600px) {
+  .main, .sheet-body { max-width: 560px; margin-left: auto; margin-right: auto; width: 100%; }
+  .imp-body, .imp-head, .imp-steps, .imp-foot { max-width: 560px; margin-left: auto; margin-right: auto; }
+}
+
+/* ==========================================================
+   全局猫咪风格 · 只作用于 html.theme-cat
+   主色暖橘 #FF9F68 / 辅助浅粉 #FFB6C1 / 背景奶白 #FFF8F2 / 卡片纯白
+   全部走 CSS 变量；所有猫元素都挂 .cat-deco
+   （html:not(.theme-cat) .cat-deco { display:none } → 极简主题零影响）
+   ========================================================== */
+
+/* ---------- 1) 配色变量（暖色、柔和阴影，无生硬黑边） ---------- */
+html.theme-cat {
+  --blue: #FF9F68;
+  --blue-dark: #E8793A;
+  --blue-soft: #FFEFE2;
+  --pink: #FFB6C1;
+  --pink-soft: #FFF0F3;
+  --bg: #FFF8F2;
+  --card: #FFFFFF;
+  --text: #3D2E27;
+  --text2: #8B7266;
+  --text3: #B9A196;
+  --line: #F6E6DB;
+  --out: #E85F55;
+  --in: #3FAE85;
+  --out-soft: #FFEDEA;
+  --in-soft: #E9F8F1;
+  --radius: 20px;                 /* 卡片 20px */
+  --warm-shadow: 0 2px 10px rgba(255,159,104,.10), 0 1px 2px rgba(190,140,100,.05);
+  --warm-shadow-lg: 0 8px 22px rgba(255,159,104,.20);
+}
+
+/* ---------- 2) 猫咪网格背景：固定在最底层，10% 透明度 + 2.5px 模糊 ---------- */
+html.theme-cat body { z-index: 0; }
+html.theme-cat body::before {
+  content: '';
+  position: fixed; inset: -26px;          /* 外扩，避免模糊边缘露出白边 */
+  background-image: url('cat/cat-bg.webp');
+  background-size: 320px auto;
+  background-repeat: repeat;
+  opacity: .10;                            /* 8%~12% */
+  filter: blur(2.5px);
+  pointer-events: none;                    /* 完全不影响任何点击 */
+  z-index: -1;
+}
+
+/* ---------- 3) 圆角 / 阴影：卡片 20px、按钮胶囊、输入框与弹窗 16px ---------- */
+html.theme-cat .card { box-shadow: var(--warm-shadow); }
+html.theme-cat .btn { border-radius: 999px; }
+html.theme-cat .btn.primary { box-shadow: 0 4px 12px rgba(255,159,104,.30); }
+html.theme-cat .btn.ghost { background: #FBEFE6; }
+html.theme-cat .btn.ghost:active { background: #F6E2D3; }
+html.theme-cat .btn.danger:active { background: #FBDCD8; }
+html.theme-cat .act-btn { border-radius: 999px; }
+html.theme-cat .act-btn-primary { background: linear-gradient(135deg, #FF9F68 0%, #FFBE8E 100%); box-shadow: 0 4px 12px rgba(255,159,104,.30); }
+html.theme-cat .act-btn-plain { border-color: var(--line); box-shadow: var(--warm-shadow); }
+html.theme-cat .chip { border-radius: 999px; }
+html.theme-cat .tip-btn { background: #F7E9DC; color: #7A4B00; }
+html.theme-cat .sheet { border-radius: 16px 16px 0 0; }
+html.theme-cat .sheet-mask { background: rgba(96,66,52,.38); }
+html.theme-cat .search-input,
+html.theme-cat .date-input,
+html.theme-cat .time-input,
+html.theme-cat .note-input,
+html.theme-cat .map-sel,
+html.theme-cat .imp-input { border-radius: 16px; }
+
+/* ---------- 4) 首页：顶部大卡（暖橘柔光 + 日期旁小猫 + 金额旁猫爪） ---------- */
+html.theme-cat .hero-card {
+  position: relative;
+  background: linear-gradient(135deg, #FFEEDF 0%, #FFE0C6 100%);
+  color: #7A4A28;
+  box-shadow: var(--warm-shadow-lg);
+}
+html.theme-cat .hero-label { opacity: 1; color: #A9703F; font-weight: 500; }
+.hero-cat {
+  position: absolute; top: -8px; right: 12px;
+  width: 58px; height: 58px; object-fit: contain;
+  pointer-events: none; mix-blend-mode: multiply;
+  animation: catBob 3.6s ease-in-out infinite;
+}
+.hero-paw { width: 26px; height: 26px; object-fit: contain; margin-bottom: 5px; display: block; }
+html.theme-cat .hero-cell-label { color: #96603A; opacity: 1; }
+html.theme-cat .dot-out { background: #F7BDB6; }
+html.theme-cat .dot-in { background: #A9E3CB; }
+html.theme-cat .hero-card .hero-cell-val.out { color: #D9534B; }
+html.theme-cat .hero-card .hero-cell-val.in { color: #2F9C74; }
+
+/* ---------- 5) 弹出层 / 表单里的猫 ---------- */
+/* 明细页搜索框旁：cat07（绝对定位在输入框右端，不占布局、不挤压控件） */
+html.theme-cat .filter-bar { position: relative; }
+html.theme-cat .search-input { padding-right: 42px; }
+.search-cat {
+  position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+  width: 26px; height: 26px; object-fit: contain;
+  mix-blend-mode: multiply; pointer-events: none;
+}
+/* 统计页：图表标题旁一只 cat01（原来是 cat01 + cat02 并排、右猫上移 3px，看着歪斜不整齐）。
+   现在只留左边那只：不旋转、不位移，靠 flex 的 align-items:center 与标题文字严格同一水平线居中。
+   注意不要用 transform 做垂直微调——祖先一旦带 transform 会形成 stacking context，
+   会让图片的 mix-blend-mode:multiply 只在组内混合而失去融底效果。 */
+.stat-cats { display: inline-flex; align-items: center; margin-left: 9px; }
+.stat-cats img { width: 44px; height: 44px; display: block; object-fit: contain; mix-blend-mode: multiply; }
+/* 只作用于「每日支出」这一行：让标题文字与 44px 的猫在同一行内按中线对齐 */
+html.theme-cat .card-title-stats { display: flex; align-items: center; }
+/* 统计页：柱状图柱子顶部加猫爪圆点 */
+html.theme-cat .bars { padding-top: 12px; }
+html.theme-cat .bar { position: relative; }
+html.theme-cat .bar:not(.zero)::after {
+  content: ''; position: absolute; top: -10px; left: 50%; margin-left: -5px;
+  width: 10px; height: 10px; pointer-events: none;
+  background: url('cat/cat-paw.webp') center/contain no-repeat;
+  opacity: .9;
+}
+html.theme-cat .bar { background: linear-gradient(180deg, #FFC79A, #FF9F68); }
+html.theme-cat .bar.zero { background: #F6E7DC; }
+/* 金额提示气泡：暖色胶囊 + 柔和暖色阴影，金额清晰可读 */
+html.theme-cat .bar-tip {
+  background: linear-gradient(135deg, #FFC08A 0%, #FF9F68 100%);
+  color: #fff; font-weight: 700; font-size: 14px;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .6);
+  box-shadow: 0 4px 12px rgba(255, 140, 90, .30);
+  margin-bottom: 6px;
+}
+html.theme-cat .rank-bar-bg { background: #F7ECE3; }
+html.theme-cat .seg { background: #F7E9DF; }
+html.theme-cat .seg-item.active { background: #fff; color: var(--text); }
+html.theme-cat .item:active { background: #FFF3EA; }
+html.theme-cat .topbar.scrolled { background: rgba(255,248,242,.94); }
+html.theme-cat .tabbar { background: rgba(255,251,247,.96); }
+html.theme-cat .tab-add { background: linear-gradient(135deg, #FF9F68, #FFBE8E); box-shadow: 0 4px 14px rgba(255,159,104,.38); }
+html.theme-cat .icon-btn:active,
+html.theme-cat .nav-btn:active { background: rgba(255,159,104,.14); }
+html.theme-cat .theme-opt { background: #FFFCF9; }
+html.theme-cat .theme-opt .theme-prev { background: #F7ECE3; }
+html.theme-cat .ocr-panel { background: #FFF7F1; }
+html.theme-cat .imp-table th { background: #FFFBF7; }
+html.theme-cat .toast { background: rgba(96,68,52,.95); }
+html.theme-cat .cat-footprints { opacity: .5; }
+
+/* ---------- 6) 「小猫模式」猫爪拨杆（开=粉色猫爪、关=灰色） ---------- */
+.paw-switch-row {
+  display: flex; align-items: center; gap: 9px;
+  margin-top: 12px; padding: 12px 14px;
+  background: var(--pink-soft); border-radius: 16px;
+}
+.paw-switch-row:active { background: #FFE6EC; }
+.paw-switch-track-paw { width: 20px; height: 20px; display: block; object-fit: contain; flex: none; }
+.paw-switch-label { flex: 1; font-size: 15px; font-weight: 600; color: var(--text); }
+.paw-switch {
+  flex: none; width: 58px; height: 32px; border-radius: 16px;
+  background: #E7DAD2; position: relative; transition: background .18s;
+}
+.paw-switch-knob {
+  position: absolute; top: 3px; left: 3px; width: 26px; height: 26px;
+  border-radius: 50%; background-color: #fff;
+  background-image: url('cat/cat-paw.webp');
+  background-size: 17px 17px; background-position: center; background-repeat: no-repeat;
+  box-shadow: 0 1px 3px rgba(120,80,60,.24);
+  transition: transform .18s, filter .18s;
+  filter: grayscale(1) opacity(.75);       /* 关：灰色猫爪 */
+}
+.paw-switch.on { background: var(--pink, #FFB6C1); }
+.paw-switch.on .paw-switch-knob { transform: translateX(26px); filter: none; }   /* 开：粉色猫爪 */
+.paw-switch-state { font-size: 14px; font-weight: 600; color: var(--text2); min-width: 20px; text-align: right; }
+
+/* ---------- 7) 删除确认弹窗：委屈哭钥匙扣 + 粉色圆角 ---------- */
+html.theme-cat .confirm {
+  border-radius: 16px;
+  background: #FFF9FA;
+  border: 1.5px solid #FFD8E0;
+  box-shadow: 0 14px 36px rgba(190,120,110,.22);
+}
+.confirm-cat {
+  width: 72px; height: 72px; display: none; margin: 0 auto 10px;
+  border-radius: 50%; object-fit: cover;
+  border: 3px solid var(--pink, #FFB6C1);
+  box-shadow: 0 4px 14px rgba(255,159,104,.22);
+}
+/* 只有「删除账目」这类确认弹窗才出现委屈哭钥匙扣 */
+html.theme-cat #confirmBox[data-cat="cry"] .confirm-cat { display: block; }
+html.theme-cat .confirm-title { text-align: center; }
+html.theme-cat .confirm-text { text-align: center; }
+
+/* ---------- 8) 加载 / 切页：一排猫爪脚印动画 ---------- */
+.cat-loader {
+  position: fixed; left: 50%; top: calc(var(--safe-t) + 58px); transform: translateX(-50%);
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 16px; border-radius: 999px;
+  background: rgba(255,252,249,.96);
+  box-shadow: 0 6px 18px rgba(255,159,104,.26);
+  z-index: 95; pointer-events: none;
+}
+.cat-loader img {
+  width: 15px; height: 15px; display: block;
+  animation: catStep .95s ease-in-out infinite;
+}
+.cat-loader img:nth-child(1) { animation-delay: 0s; }
+.cat-loader img:nth-child(2) { animation-delay: .12s; }
+.cat-loader img:nth-child(3) { animation-delay: .24s; }
+.cat-loader img:nth-child(4) { animation-delay: .36s; }
+.cat-loader img:nth-child(5) { animation-delay: .48s; }
+@keyframes catStep {
+  0%, 100% { opacity: .25; transform: translateY(0) scale(.9); }
+  50%      { opacity: 1;   transform: translateY(-4px) scale(1.08); }
+}
+
+/* ---------- 9) 小屏微调 ---------- */
+@media (max-width: 360px) {
+  html.theme-cat .cat-empty-art img { width: 24vw; }
+  .search-cat { width: 22px; height: 22px; right: 7px; }
+  html.theme-cat .search-input { padding-right: 36px; }
+  .hero-cat { width: 50px; height: 50px; }
+}
+
+/* ---------- 10) 首页「本月概览」标题两侧：左三色猫 + 右黑猫（72px） ----------
+   两只猫都是 .cat-deco，极简主题下被统一门控隐藏（display:none 不占位），
+   因此极简主题这一行的结构与样式与改动前完全一致。 */
+.month-cat {
+  display: none;                      /* 默认（极简主题）不出现 */
+  width: 72px; height: 72px;
+  object-fit: contain;
+  flex: 0 0 auto;                     /* 不被 flex 压缩，稳定 72px */
+  -webkit-user-drag: none;
+}
+html.theme-cat .month-cat { display: block; }
+
+/* 三色猫：素材原是白底图，已用边缘 flood-fill 抠成透明底（tools/prep_cat_tricolor.py），
+   同时保留 multiply 融进奶白底。两层保险——即使祖先节点带 transform / opacity / filter
+   形成 stacking context 让 multiply 只在组内混合，也绝不会露出白框。
+   黑猫是透明底 → 直接嵌入，不能再用 multiply（否则整只被乘黑） */
+html.theme-cat .month-cat-l { mix-blend-mode: multiply; }
+html.theme-cat .month-cat-r { mix-blend-mode: normal; }
+
+/* 只在猫咪风格下让「标题居中、左右对称」，间距 11px；
+   极简主题不加这段，.section-title 仍是原来的 space-between + 靠左 */
+html.theme-cat .section-title-cats {
+  justify-content: center;
+  gap: 11px;
+  margin: 12px 4px 10px;
+  position: relative;          /* 彩蛋气泡的定位基准（仅猫咪风格） */
+}
+html.theme-cat .month-cat { cursor: pointer; }
+
+/* ---------- 11) 点击彩蛋：点两侧的猫 → 猫弹跳 + 冒出一句话气泡 ----------
+   气泡是 .cat-deco，极简主题下被门控隐藏；pointer-events: none 保证不挡任何点击。 */
+.cat-pop { display: none; }
+html.theme-cat .cat-pop {
+  display: block;
+  position: absolute; z-index: 30;
+  bottom: calc(100% - 12px);       /* 贴着猫的实际头顶（72px 图盒里猫身上下各留约 11px 空白） */
+  padding: 6px 12px 7px;
+  background: #fff;
+  color: #C0602A;
+  font-size: 14px; font-weight: 700; line-height: 1.15;
+  white-space: nowrap;
+  border: 1.5px solid #FFCBA4;
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(255, 140, 90, .22);
+  pointer-events: none;
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  animation: catPopIn .28s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+/* 漫画气泡的小尾巴：一个只露出右下半边的小方块，指向猫头 */
+html.theme-cat .cat-pop::after {
+  content: '';
+  position: absolute; left: 50%; bottom: -5px; margin-left: -5px;
+  width: 9px; height: 9px;
+  background: #fff;
+  border-right: 1.5px solid #FFCBA4;
+  border-bottom: 1.5px solid #FFCBA4;
+  border-bottom-right-radius: 3px;
+  transform: rotate(45deg);
+}
+html.theme-cat .cat-pop.out { animation: catPopOut .3s ease forwards; }
+
+/* 弹跳：轻微上跳 + 落地回弹（0.4s） */
+html.theme-cat .month-cat.bounce { animation: catBounce .4s ease; }
+@keyframes catBounce {
+  0%   { transform: translateY(0)     scale(1, 1); }
+  28%  { transform: translateY(-10px) scale(1.05, .95); }
+  55%  { transform: translateY(0)     scale(1.03, .97); }
+  76%  { transform: translateY(-4px)  scale(1.01, .99); }
+  100% { transform: translateY(0)     scale(1, 1); }
+}
+@keyframes catPopIn {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(8px)  scale(.5); }
+  60%  { opacity: 1; transform: translateX(-50%) translateY(-4px) scale(1.06); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1); }
+}
+@keyframes catPopOut {
+  0%   { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(.9); }
+}
